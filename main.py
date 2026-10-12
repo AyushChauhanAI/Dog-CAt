@@ -4,20 +4,25 @@ FastAPI Cat vs Dog classifier (model: Firebleu/feral-ai, MobileNetV2)
 Setup:
     pip install -r requirements.txt
 
+Folder me ye 3 files honi chahiye: main.py, index.html, requirements.txt
+
 Run:
     uvicorn main:app --reload
 
-Test:
-    Browser me kholo -> http://127.0.0.1:8000/docs
-    POST /predict me "Try it out" -> image choose karo -> Execute
+Use:
+    Frontend  -> http://127.0.0.1:8000
+    API docs  -> http://127.0.0.1:8000/docs
 """
 
 import io
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import torch
 import torch.nn as nn
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from huggingface_hub import hf_hub_download
 from PIL import Image, UnidentifiedImageError
 from torchvision import models, transforms
@@ -67,9 +72,28 @@ app = FastAPI(
 )
 
 
-@app.get("/")
+# CORS: zarurat tab padti hai jab index.html seedha double-click karke khola jaye
+# ya kisi aur port/server se serve ho. Production me allow_origins ko apni site tak limit karo.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+INDEX_FILE = Path(__file__).parent / "index.html"
+
+
+@app.get("/", include_in_schema=False)
 def home():
-    return {"message": "Cat vs Dog API chal rahi hai. /docs par jaake test karo."}
+    if not INDEX_FILE.exists():
+        raise HTTPException(status_code=404, detail="index.html, main.py ke saath wale folder me rakho.")
+    return FileResponse(INDEX_FILE)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "model_loaded": "model" in state}
 
 
 @app.post("/predict")
